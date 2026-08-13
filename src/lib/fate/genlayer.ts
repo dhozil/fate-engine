@@ -1,5 +1,4 @@
 import { createClient } from "genlayer-js";
-import { Hash, TransactionStatus } from "genlayer-js/types";
 import { localnet, studionet, testnetBradbury } from "genlayer-js/chains";
 import type { OnchainCommit, Prediction, Verification } from "./types";
 
@@ -133,16 +132,9 @@ function toDict(obj: Record<string, unknown>): Record<string, CalldataValue> {
   return out;
 }
 
-function waitForReceipt(client: ReturnType<typeof createWriteClient>, hash: string) {
-  // ACCEPTED is enough for the game: the transaction was executed and accepted by
-  // consensus. Waiting for FINALIZED can take several minutes (finality window +
-  // appeals) and the AI-consensus transaction is already slow on its own.
-  return client.waitForTransactionReceipt({
-    hash: hash as Hash,
-    status: TransactionStatus.ACCEPTED,
-    interval: 8000,
-    retries: 75, // ~10 minutes before giving up
-  });
+/** Pause helper (resolves after ms). */
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -153,6 +145,10 @@ function waitForReceipt(client: ReturnType<typeof createWriteClient>, hash: stri
  * STRICT MODE: this throws on any failure (not configured, tx rejected, or the
  * settled record cannot be read). No local/mock fallback is returned — the UI
  * surfaces the error instead of silently showing heuristic data.
+ *
+ * We deliberately do NOT wait on the raw transaction status: studionet's RPC is
+ * flaky ("Failed to fetch") even though the tx is accepted and COMMITTING in the
+ * explorer. Instead we poll the prediction record itself until it settles.
  */
 export async function requestPredictionOnchain(
   wallet: string,
@@ -174,9 +170,8 @@ export async function requestPredictionOnchain(
       args: [prediction.id, toDict(signal)],
       value: BigInt(0),
     });
-    await waitForReceipt(client, String(txHash));
 
-    const result = await readPredictionOnchain(wallet, prediction.id);
+    const result = await pollPrediction(wallet, prediction.id);
     if (!result) {
       throw new Error("On-chain prediction record could not be read after the transaction.");
     }
@@ -197,6 +192,21 @@ export async function requestPredictionOnchain(
   }
 }
 
+/** Polls get_prediction until a settled record exists, tolerating flaky RPC. */
+async function pollPrediction(
+  wallet: string,
+  predictionId: string,
+): Promise<ConsensusPatch | undefined> {
+  const deadline = Date.now() + 10 * 60 * 1000;
+  const interval = 15000;
+  for (;;) {
+    const result = await readPredictionOnchain(wallet, predictionId);
+    if (result && result.prediction) return result;
+    if (Date.now() > deadline) return undefined;
+    await sleep(interval);
+  }
+}
+
 export type ConsensusPatch = {
   category?: string;
   prediction?: string;
@@ -205,6 +215,8 @@ export type ConsensusPatch = {
   impact?: string;
   agentAgreement?: number;
   interpretations?: OnchainAgentReading[];
+  status?: string;
+  result?: string;
 };
 
 /** An agent reading as returned by the contract's get_prediction. */
@@ -245,6 +257,8 @@ export async function readPredictionOnchain(
     if (typeof res["agent_agreement_bps"] === "number") {
       patch.agentAgreement = Number(res["agent_agreement_bps"]) / 10000;
     }
+    if (typeof res["status"] === "string") patch.status = res["status"];
+    if (typeof res["result"] === "string") patch.result = res["result"];
     if (Array.isArray(res["readings"])) {
       patch.interpretations = (res["readings"] as Record<string, unknown>[]).map(
         (r): OnchainAgentReading => ({
@@ -335,10 +349,12 @@ export async function verifyPredictionOnchain(
       args: [prediction.id, verification.result],
       value: BigInt(0),
     });
-    const receipt = await waitForReceipt(client, String(txHash));
-    const resultName = receipt?.["txExecutionResultName"] ?? receipt?.["txExecutionResult"];
-    if (resultName === "FINISHED_WITH_ERROR") {
-      throw new Error("Verification transaction execution failed on-chain.");
+    // Wait for the verification to settle on-chain by polling the record until
+    // it is actually verified — tolerates studionet's flaky RPC instead of
+    // relying on raw transaction status polling.
+    const settled = await pollVerified(wallet, prediction.id);
+    if (!settled) {
+      throw new Error("Verification transaction did not settle on-chain.");
     }
     return {
       onchain: {
@@ -351,8 +367,20 @@ export async function verifyPredictionOnchain(
     };
   } catch (e) {
     if (e instanceof Error && e.message.includes("not configured")) throw e;
-    if (e instanceof Error && e.message.includes("execution failed on-chain")) throw e;
+    if (e instanceof Error && e.message.includes("did not settle on-chain")) throw e;
     const detail = e instanceof Error ? e.message : String(e);
     throw new Error(`On-chain verification failed: ${detail}`);
+  }
+}
+
+/** Polls get_prediction until the record is marked verified on-chain. */
+async function pollVerified(wallet: string, predictionId: string): Promise<boolean> {
+  const deadline = Date.now() + 5 * 60 * 1000;
+  const interval = 12000;
+  for (;;) {
+    const result = await readPredictionOnchain(wallet, predictionId);
+    if (result && result.status === "verified") return true;
+    if (Date.now() > deadline) return false;
+    await sleep(interval);
   }
 }
