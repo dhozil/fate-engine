@@ -1,0 +1,24 @@
+# Dependencies are installed during the build on Vercel
+node_modules
+package-lock.json
+bun.lock
+
+# Build output & local caches (rebuilt on Vercel)
+.output
+.vercel
+.wrangler
+.tanstack
+.nitro
+dist
+
+# Local config with secrets
+.env.local
+.env
+
+# Python test artifacts
+.pytest_cache
+artifacts
+__pycache__
+*.pyc
+.venv
+venv

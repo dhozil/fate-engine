@@ -20,6 +20,10 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# Vercel
+.vercel/
+vercel/
+
 # Python / test caches
 __pycache__/
 *.pyc
