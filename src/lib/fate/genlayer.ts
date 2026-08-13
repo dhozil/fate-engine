@@ -191,7 +191,19 @@ export type ConsensusPatch = {
   confidence?: string;
   impact?: string;
   agentAgreement?: number;
-  interpretations?: unknown[];
+  interpretations?: OnchainAgentReading[];
+};
+
+/** An agent reading as returned by the contract's get_prediction. */
+export type OnchainAgentReading = {
+  agent_id: string;
+  agent_name: string;
+  category: string;
+  statement: string;
+  probability_bps: number;
+  confidence: string;
+  impact: string;
+  signals: string[];
 };
 
 /** Reads a settled prediction record back from the Intelligent Contract. */
@@ -220,7 +232,20 @@ export async function readPredictionOnchain(
     if (typeof res["agent_agreement_bps"] === "number") {
       patch.agentAgreement = Number(res["agent_agreement_bps"]) / 10000;
     }
-    if (Array.isArray(res["readings"])) patch.interpretations = res["readings"] as unknown[];
+    if (Array.isArray(res["readings"])) {
+      patch.interpretations = (res["readings"] as Record<string, unknown>[]).map(
+        (r): OnchainAgentReading => ({
+          agent_id: String(r["agent_id"] ?? ""),
+          agent_name: String(r["agent_name"] ?? ""),
+          category: String(r["category"] ?? ""),
+          statement: String(r["statement"] ?? ""),
+          probability_bps: Number(r["probability_bps"] ?? 0),
+          confidence: String(r["confidence"] ?? ""),
+          impact: String(r["impact"] ?? ""),
+          signals: Array.isArray(r["signals"]) ? (r["signals"] as string[]) : [],
+        }),
+      );
+    }
     return patch;
   } catch {
     return undefined;
@@ -239,6 +264,35 @@ export async function readOracleOnchain(
       functionName: "get_oracle",
       args: [oracleAddress],
     })) as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
+}
+
+export type OnchainLeaderboardRow = {
+  address: string;
+  predictions: number;
+  confirmed: number;
+  accuracy_bps: number;
+};
+
+/** Reads the on-chain leaderboard (addresses sorted by accuracy). */
+export async function readLeaderboardOnchain(): Promise<OnchainLeaderboardRow[] | undefined> {
+  if (!isGenLayerConfigured()) return undefined;
+  try {
+    const client = createReadClient();
+    const res = (await client.readContract({
+      address: contractAddress() as `0x${string}`,
+      functionName: "get_leaderboard",
+      args: [],
+    })) as Record<string, unknown>[];
+    if (!Array.isArray(res)) return undefined;
+    return res.map((r) => ({
+      address: String(r["address"] ?? ""),
+      predictions: Number(r["predictions"] ?? 0),
+      confirmed: Number(r["confirmed"] ?? 0),
+      accuracy_bps: Number(r["accuracy_bps"] ?? 0),
+    }));
   } catch {
     return undefined;
   }

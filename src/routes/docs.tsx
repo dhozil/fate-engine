@@ -32,11 +32,11 @@ const sections = [
   ],
   [
     "Consensus rules",
-    "Agents produce independent interpretations (category, statement, probability, confidence, impact, signals). The consensus layer takes the majority category, a confidence-weighted average probability, and measures agreement across all 4 agents.",
+    "Agents produce independent interpretations (category, statement, probability, confidence, impact, signals). GenLayer validators re-run the LLM independently and compare the settled category (Partial Field Matching). The consensus layer then takes the majority category, a confidence-weighted probability, and measures agreement across all 4 agents.",
   ],
   [
     "Prediction object",
-    "prediction, probability, confidence, category, impact, time horizon (24h / 3d / 7d / 30d), signals and agent agreement. Committed on-chain via the GenLayer contract when configured.",
+    "prediction, probability, confidence, category, impact, time horizon (24h), signals and agent agreement. Committed on-chain via the GenLayer contract.",
   ],
   [
     "Verification",
@@ -44,7 +44,7 @@ const sections = [
   ],
   [
     "GenLayer AI Consensus",
-    "The contract contracts/fate_engine.py runs 4 independent AI agents (Behavioral, Emotional, Social, Risk & Opportunity) on the derived Fate Signal via gl.nondet.exec_prompt, then reaches consensus with gl.vm.run_nondet_unsafe. The settled prediction is read back and displayed. Raw journal, personal notes and free-form content stay off-chain. Set VITE_GENLAYER_CHAIN, VITE_GENLAYER_CONTRACT and VITE_GENLAYER_RPC to enable on-chain mode.",
+    "The contract contracts/fate_engine.py runs 4 independent AI agents (Behavioral, Emotional, Social, Risk & Opportunity) on the derived Fate Signal via gl.nondet.exec_prompt. Validators re-run the LLM and compare the settled category before consensus is reached with gl.vm.run_nondet_unsafe. The settled prediction is read back and displayed. Raw journal, personal notes and free-form content stay off-chain. Set VITE_GENLAYER_CHAIN, VITE_GENLAYER_CONTRACT and VITE_GENLAYER_RPC to enable on-chain mode.",
   ],
   [
     "Disclaimer",

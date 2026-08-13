@@ -43,7 +43,7 @@ const stats = [
   { value: "4", label: "AI Agents" },
   { value: "1", label: "Consensus Layer" },
   { value: "24H", label: "Core Horizon" },
-  { value: "4", label: "Horizons Total" },
+  { value: "5", label: "Categories" },
 ];
 
 const pillars = [
@@ -65,7 +65,7 @@ const pillars = [
   {
     icon: Orbit,
     title: "Future Prediction",
-    body: "Get predictions for 24H, 3 Days, 7 Days, and 30 Days ahead.",
+    body: "Get a probabilistic forecast for the next 24 hours.",
   },
   {
     icon: BadgeCheck,
@@ -81,9 +81,9 @@ const pillars = [
 
 const horizons = [
   { icon: Clock, value: "24H", label: "Tomorrow Prediction" },
-  { icon: Compass, value: "3D", label: "3 Days Forecast" },
-  { icon: Sparkles, value: "7D", label: "7 Days Outlook" },
-  { icon: CalendarDays, value: "30D", label: "30 Days Trajectory" },
+  { icon: Target, value: "4", label: "AI Agents" },
+  { icon: ShieldCheck, value: "5", label: "Categories" },
+  { icon: BadgeCheck, value: "100%", label: "On-chain" },
 ];
 
 const orbitals = [

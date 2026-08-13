@@ -73,6 +73,7 @@ export async function generatePrediction(
     impact: (settled.impact as Prediction["impact"]) ?? draft.impact,
     agentAgreement: settled.agentAgreement ?? draft.agentAgreement,
     consensusScore: settled.agentAgreement ?? draft.agentAgreement,
+    interpretations: mapOnchainReadings(settled.interpretations) ?? draft.interpretations,
     onchain: chain.onchain,
   };
 
@@ -83,6 +84,25 @@ export async function generatePrediction(
   addChronicle(wallet, chronicle);
   addPrediction(wallet, prediction);
   return { prediction, consensus };
+}
+
+/** Convert on-chain agent readings (bps format) to frontend AgentInterpretation. */
+function mapOnchainReadings(
+  readings?: import("@/lib/fate/genlayer").OnchainAgentReading[],
+): Prediction["interpretations"] | undefined {
+  if (!readings || readings.length === 0) return undefined;
+  return readings.map((r) => ({
+    agentId: r.agent_id as Prediction["interpretations"][number]["agentId"],
+    agentName: r.agent_name,
+    category: r.category as Prediction["interpretations"][number]["category"],
+    statement: r.statement,
+    probability: Number(r.probability_bps) / 10000,
+    confidence: r.confidence as Prediction["interpretations"][number]["confidence"],
+    timeHorizon: "24h" as Prediction["interpretations"][number]["timeHorizon"],
+    impact: r.impact as Prediction["interpretations"][number]["impact"],
+    signals: r.signals,
+    reasoning: "",
+  }));
 }
 
 function signalToCalldata(

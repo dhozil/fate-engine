@@ -1,8 +1,8 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { PageShell } from "@/components/fate/PageShell";
 import { WalletGate, useWallet } from "@/components/fate/wallet";
-import { buildProfile } from "@/lib/fate/metrics";
+import { readLeaderboardOnchain, type OnchainLeaderboardRow } from "@/lib/fate/genlayer";
 import { shortAddress } from "@/components/fate/wallet";
 
 export const Route = createFileRoute("/leaderboard")({
@@ -12,54 +12,74 @@ export const Route = createFileRoute("/leaderboard")({
       {
         name: "description",
         content:
-          "The highest ranked oracles by Fate Score, prediction accuracy and verification streak.",
+          "The highest ranked oracles by on-chain prediction accuracy, confirmed outcomes and Fate Score.",
       },
       { property: "og:title", content: "Leaderboard — Fate Engine" },
-      { property: "og:description", content: "Top oracles ranked by accuracy and Fate Score." },
+      { property: "og:description", content: "Top oracles ranked by on-chain accuracy." },
     ],
   }),
   component: Leaderboard,
 });
 
+function accuracyPct(bps: number): string {
+  return `${(bps / 100).toFixed(1)}%`;
+}
+
 function Leaderboard() {
   const { address } = useWallet();
+  const [rows, setRows] = useState<OnchainLeaderboardRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const me = useMemo(() => (address ? buildProfile(address) : null), [address]);
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    readLeaderboardOnchain()
+      .then((data) => {
+        if (!alive) return;
+        if (data && data.length > 0) {
+          setRows(data);
+        } else {
+          setRows([]);
+        }
+        setError(null);
+      })
+      .catch((e) => {
+        if (!alive) return;
+        setError(e instanceof Error ? e.message : "Failed to load leaderboard.");
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [address]);
 
-  const accuracySort = (
-    a: { name: string; score: number; acc: number; streak: number },
-    b: typeof a,
-  ) => b.acc - a.acc || b.score - a.score;
-
-  const rows = useMemo(() => {
-    const mine = me
-      ? [
-          {
-            name: `${shortAddress(me.userId)} (you)`,
-            score: me.fateScore,
-            acc: me.accuracy,
-            streak: me.streak,
-            you: true,
-          },
-        ]
-      : [];
-    return mine.sort(accuracySort);
-  }, [me]);
+  const meHighlighted = useMemo(
+    () => rows.findIndex((r) => r.address.toLowerCase() === address?.toLowerCase()),
+    [rows, address],
+  );
 
   return (
     <PageShell
       eyebrow="Ranking"
       title="Leaderboard"
-      intro="Reputation is earned by being right about your own life — verified, not claimed."
+      intro="Reputation is earned by being right about your own life — verified on-chain, not claimed."
     >
       <WalletGate>
         <div className="panel-fate rounded-2xl p-7">
-          <h2 className="font-display text-2xl">Your standing</h2>
-          {rows.length === 0 ? (
-            <p className="mt-3 text-[13px] text-muted-foreground">
-              No verified performance yet. Write a chronicle and verify tomorrow to enter the
-              rankings.
-            </p>
+          <h2 className="font-display text-2xl">Oracle ranking</h2>
+          {loading ? (
+            <p className="mt-4 text-[13px] text-muted-foreground">Reading on-chain leaderboard…</p>
+          ) : rows.length === 0 ? (
+            <div>
+              <p className="mt-4 text-[13px] text-muted-foreground">
+                No oracles ranked yet. Write a chronicle and verify tomorrow to enter the on-chain
+                leaderboard.
+              </p>
+              {error && <p className="mt-2 text-[12px] text-destructive">{error}</p>}
+            </div>
           ) : (
             <div className="mt-5 overflow-x-auto">
               <table className="w-full text-left text-[14px]">
@@ -67,30 +87,45 @@ function Leaderboard() {
                   <tr className="border-b border-border text-[11px] tracking-[0.16em] text-muted-foreground uppercase">
                     <th className="px-4 py-4">#</th>
                     <th className="px-4 py-4">Oracle</th>
-                    <th className="px-4 py-4">Fate Score</th>
+                    <th className="px-4 py-4">Predictions</th>
+                    <th className="px-4 py-4">Confirmed</th>
                     <th className="px-4 py-4">Accuracy</th>
-                    <th className="px-4 py-4">Streak</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r, i) => (
-                    <tr key={r.name} className="border-b border-border/50 last:border-0">
-                      <td className="px-4 py-5 font-display text-xl text-gold">{i + 1}</td>
-                      <td className="px-4 py-5">{r.name}</td>
-                      <td className="px-4 py-5 text-violet-glow">{r.score}</td>
-                      <td className="px-4 py-5">{r.acc}%</td>
-                      <td className="px-4 py-5 text-muted-foreground">{r.streak} days</td>
-                    </tr>
-                  ))}
+                  {rows.map((r, i) => {
+                    const isMe = r.address.toLowerCase() === address?.toLowerCase();
+                    return (
+                      <tr
+                        key={r.address}
+                        className={`border-b border-border/50 last:border-0 ${
+                          isMe ? "bg-gold/5" : ""
+                        }`}
+                      >
+                        <td className="px-4 py-5 font-display text-xl text-gold">{i + 1}</td>
+                        <td className="px-4 py-5">
+                          {shortAddress(r.address)}
+                          {isMe ? (
+                            <span className="ml-2 rounded-full border border-gold/50 bg-gold/10 px-2 py-0.5 text-[10px] tracking-wide text-gold uppercase">
+                              you
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className="px-4 py-5">{r.predictions}</td>
+                        <td className="px-4 py-5 text-violet-glow">{r.confirmed}</td>
+                        <td className="px-4 py-5">{accuracyPct(r.accuracy_bps)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
-          <div className="mt-6 rounded-lg border border-border bg-background/30 px-4 py-3 text-[12px] leading-6 text-muted-foreground">
-            The global leaderboard unlocks once predictions and verifications are committed
-            on-chain. Configure <code className="text-gold">VITE_GENLAYER_CONTRACT</code> and deploy
-            the Intelligent Contract to enable cross-wallet rankings.
-          </div>
+          {meHighlighted === -1 && !loading && rows.length > 0 && (
+            <div className="mt-4 rounded-lg border border-border bg-background/30 px-4 py-3 text-[12px] leading-6 text-muted-foreground">
+              Your address is not ranked yet. Complete a prediction and verify it to appear here.
+            </div>
+          )}
         </div>
       </WalletGate>
     </PageShell>

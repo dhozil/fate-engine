@@ -8,7 +8,7 @@ export const Route = createFileRoute("/features")({
       {
         name: "description",
         content:
-          "Daily Chronicle, emotional intensity, multi-agent consensus, 24H–30D horizons, verification, Fate Score and alternate timelines.",
+          "Daily Chronicle, emotional intensity, multi-agent AI consensus, probabilistic prediction, verification, accuracy, Fate Profile and on-chain reputation.",
       },
       { property: "og:title", content: "Features — Fate Engine" },
       {
@@ -23,16 +23,32 @@ export const Route = createFileRoute("/features")({
 const features = [
   ["✧", "Daily Chronicle", "Free-form narrative combined with structured behavioural fields."],
   ["☺", "Emotion Engine", "Primary and secondary emotion, intensity 0–10, and mood of the day."],
-  ["◎", "Multi Agent Consensus", "Independent AI readings validated through GenLayer consensus."],
-  ["◍", "Four Horizons", "24 hours, 3 days, 7 days and 30 days of probabilistic outlook."],
+  [
+    "◎",
+    "Multi Agent AI Consensus",
+    "Four independent AI agents read your day; GenLayer validators re-run and compare before settling.",
+  ],
+  [
+    "◍",
+    "Probabilistic Forecast",
+    "A calibrated 24-hour prediction with probability and confidence.",
+  ],
   [
     "✔",
     "Prediction Verification",
-    "Report real outcomes and grow accuracy, streaks and reputation.",
+    "Report the real outcome tomorrow and grow accuracy, streaks and reputation.",
   ],
-  ["▦", "Fate Profile", "Behavioural patterns, tendencies and long-term life trajectory."],
-  ["⟲", "What-If Timeline", "Explore an alternate branch of the decision you almost made."],
-  ["◆", "On-chain Record", "Every prediction is recorded before the outcome is known."],
+  ["▦", "Fate Profile", "Behavioural tendencies, patterns and accuracy derived from your history."],
+  [
+    "◆",
+    "On-chain Record",
+    "Every prediction and verification is committed on-chain — no mock fallback.",
+  ],
+  [
+    "☯",
+    "Adaptive Signals",
+    "Predictions follow the actions you actually took — never assumptions.",
+  ],
 ];
 
 function Features() {
