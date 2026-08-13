@@ -1,0 +1,19 @@
+paths:
+  contracts: contracts
+  artifacts: artifacts
+
+environment: .env
+
+networks:
+  default: studionet
+  studionet:
+    id: 61999
+    url: https://studio.genlayer.com/api
+    accounts:
+      - "${FATE_ACCOUNT_1}"
+      - "${FATE_ACCOUNT_2}"
+      - "${FATE_ACCOUNT_3}"
+      - "${FATE_ACCOUNT_4}"
+      - "${FATE_ACCOUNT_5}"
+    from: "${FATE_ACCOUNT_1}"
+    chain_type: studionet
