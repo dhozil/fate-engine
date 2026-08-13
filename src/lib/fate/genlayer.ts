@@ -90,10 +90,17 @@ function createWriteClient(wallet: string) {
 /** Switches the connected wallet to the configured GenLayer network. */
 export async function connectWalletToChain(): Promise<void> {
   const provider = getBrowserProvider();
-  const chainName = getEnv("VITE_GENLAYER_CHAIN") ?? "localnet";
+  if (!provider || typeof window === "undefined") return;
+  const chainName = (getEnv("VITE_GENLAYER_CHAIN") ?? "localnet") as
+    "localnet" | "studionet" | "testnetAsimov" | "testnetBradbury" | "mainnet";
   try {
-    const client = createReadClient();
-    await (client as unknown as { connect?: (name: string) => Promise<void> }).connect?.(chainName);
+    // Use the write client (which carries the injected provider) so the wallet
+    // knows which account/network to switch. This mirrors the SDK browser flow.
+    const client = createClient({
+      ...clientConfig(),
+      provider: provider as never,
+    });
+    await client.connect(chainName);
   } catch {
     // Wallet/network switch failure is non-fatal; transactions will surface it.
   }
@@ -127,9 +134,14 @@ function toDict(obj: Record<string, unknown>): Record<string, CalldataValue> {
 }
 
 function waitForReceipt(client: ReturnType<typeof createWriteClient>, hash: string) {
+  // ACCEPTED is enough for the game: the transaction was executed and accepted by
+  // consensus. Waiting for FINALIZED can take several minutes (finality window +
+  // appeals) and the AI-consensus transaction is already slow on its own.
   return client.waitForTransactionReceipt({
     hash: hash as Hash,
-    status: TransactionStatus.FINALIZED,
+    status: TransactionStatus.ACCEPTED,
+    interval: 8000,
+    retries: 75, // ~10 minutes before giving up
   });
 }
 
@@ -154,6 +166,7 @@ export async function requestPredictionOnchain(
   }
 
   try {
+    await connectWalletToChain();
     const client = createWriteClient(wallet);
     const txHash = await client.writeContract({
       address: contractAddress() as `0x${string}`,
@@ -314,6 +327,7 @@ export async function verifyPredictionOnchain(
   }
 
   try {
+    await connectWalletToChain();
     const client = createWriteClient(wallet);
     const txHash = await client.writeContract({
       address: contractAddress() as `0x${string}`,
