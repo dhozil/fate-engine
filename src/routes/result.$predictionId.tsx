@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { PageShell } from "@/components/fate/PageShell";
 import { WalletGate, useWallet } from "@/components/fate/wallet";
 import { CATEGORIES } from "@/lib/fate";
@@ -27,6 +27,7 @@ function ResultPage() {
   const { predictionId } = Route.useParams();
   const { address } = useWallet();
   const navigate = useNavigate();
+  const router = useRouter();
 
   const prediction = address
     ? getPredictionsFor(address).find((p) => p.id === predictionId)
@@ -70,6 +71,13 @@ function ResultPage() {
     >
       <WalletGate>
         <div className="mx-auto max-w-3xl">
+          <button
+            type="button"
+            onClick={() => router.history.back()}
+            className="mb-6 inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-[12px] tracking-[0.14em] text-muted-foreground uppercase transition-colors hover:border-gold hover:text-gold"
+          >
+            ← Back
+          </button>
           <div className="panel-fate rounded-3xl p-8 md:p-10">
             <div className="text-[11px] tracking-[0.22em] text-gold uppercase">
               Tomorrow's Fate · {CATEGORIES[prediction.category]}
