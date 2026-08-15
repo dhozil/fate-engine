@@ -3,6 +3,7 @@ import { buildHistoryContext } from "./history";
 import { runConsensus } from "./consensus";
 import { recalibrateProbability } from "./metrics";
 import { requestPredictionOnchain, verifyPredictionOnchain } from "./genlayer";
+import { sha256Hex } from "./crypto";
 import {
   addChronicle,
   addPrediction,
@@ -16,6 +17,9 @@ function uuid(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
+
+/** Minimum length of the evidence narrative required for reputation-affecting results. */
+const MIN_EVIDENCE_LENGTH = 20;
 
 export function createId(prefix: string): string {
   return `${prefix}_${uuid()}`;
@@ -76,6 +80,13 @@ export async function generatePrediction(
     interpretations: mapOnchainReadings(settled.interpretations) ?? draft.interpretations,
     onchain: chain.onchain,
   };
+
+  // Anchor the verification window to the on-chain commitment time, so the UI
+  // unlock matches the contract (which uses the transaction datetime).
+  if (settled.createdTs) {
+    const horizonMs = horizonHours * 60 * 60 * 1000;
+    prediction.horizonDeadline = new Date(settled.createdTs * 1000 + horizonMs).toISOString();
+  }
 
   // Personal calibration: nudge the settled probability toward the user's base
   // rate so predictions become better calibrated over time.
@@ -164,21 +175,32 @@ export async function verifyPrediction(
   actualOutcome: string,
   userCommentary = "",
 ): Promise<{ verification: Verification; prediction: Prediction }> {
-  const verification: Verification = {
-    id: createId("ver"),
-    predictionId,
-    result,
-    actualOutcome,
-    userCommentary,
-    verifiedAt: new Date().toISOString(),
-  };
-
   const list = getPredictionsFor(wallet);
   const prediction = list.find((p) => p.id === predictionId);
   if (!prediction) throw new Error("Prediction not found");
   if (prediction.status === "verified") {
     throw new Error("This prediction is already verified on-chain.");
   }
+
+  // Evidence that affects reputation must be substantive. The on-chain AI
+  // verifier also enforces this, but we fail fast before spending gas.
+  const evidence = actualOutcome.trim();
+  if (result !== "not_sure" && evidence.length < MIN_EVIDENCE_LENGTH) {
+    throw new Error(
+      `Please describe what actually happened (at least ${MIN_EVIDENCE_LENGTH} characters) so the verifier can check the outcome.`,
+    );
+  }
+
+  const evidenceHash = await sha256Hex(evidence);
+  const verification: Verification = {
+    id: createId("ver"),
+    predictionId,
+    result,
+    actualOutcome: evidence,
+    userCommentary,
+    evidenceHash,
+    verifiedAt: new Date().toISOString(),
+  };
 
   // Real on-chain only: throw if the transaction fails. The prediction is only
   // marked verified after the on-chain verification succeeds.

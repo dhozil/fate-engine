@@ -42,3 +42,7 @@ venv/
 *.njsproj
 *.sln
 *.sw?
+
+# Throwaway studionet audit state (contains a disposable test account key)
+.audit_state.json
+

@@ -26,7 +26,7 @@ const steps = [
   ["03", "Multi-agent interpretation", "Several AI agents read your day independently."],
   ["04", "GenLayer AI Consensus", "Agents converge into one validated interpretation on-chain."],
   ["05", "Probabilistic prediction", "Category, probability, confidence, impact and reasoning."],
-  ["06", "Verification & reputation", "Report the actual outcome, earn accuracy and Fate Score."],
+  ["06", "Verification & reputation", "After the window opens, report the outcome with evidence; an AI verifier checks it before accuracy and Fate Score update."],
 ];
 
 function HowItWorks() {

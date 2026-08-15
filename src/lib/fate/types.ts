@@ -237,6 +237,7 @@ export interface Verification {
   result: VerificationResult;
   actualOutcome: string;
   userCommentary: string;
+  evidenceHash: string;
   verifiedAt: string;
 }
 

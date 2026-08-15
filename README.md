@@ -74,18 +74,18 @@ Each agent reads the **same signal** through a different lens — and validators
 **Deployed on GenLayer Studio (studionet):**
 
 ```
-📦 0x4C964C4288555E0b026e0656D17C8B0050803147
+📦 0x45C5Dc0e703Bc9D7044814090D3f1760E536fee9
 ```
 
 ### Contract Methods
 
 | Method | Type | Description |
 | :--- | :---: | :--- |
-| `request_prediction(prediction_id, signal)` | ✍️ write | Runs the 4-agent AI consensus and stores the settled prediction |
-| `verify_prediction(prediction_id, result)` | ✍️ write | Records `confirmed` / `partial` / `missed` / `not_sure` |
+| `request_prediction(prediction_id, signal, time_horizon)` | ✍️ write | Runs the 4-agent AI consensus and stores the settled prediction (`time_horizon` ∈ `24h`/`3d`/`7d`/`30d`) |
+| `verify_prediction(prediction_id, result, evidence_hash, evidence)` | ✍️ write | Records `confirmed` / `partial` / `missed` / `not_sure` after the AI verifier accepts the evidence |
 | `get_prediction(oracle, prediction_id)` | 👁️ view | Reads a prediction with all agent readings |
 | `get_oracle(oracle)` | 👁️ view | Oracle summary + all records |
-| `get_leaderboard()` | 👁️ view | Oracles sorted by on-chain accuracy |
+| `get_leaderboard()` | 👁️ view | Oracles sorted by on-chain accuracy (min 3 verified) |
 
 ### Consensus Output
 
@@ -110,6 +110,11 @@ Each agent reads the **same signal** through a different lens — and validators
 
 - **No mock fallback** — every prediction & verification is a real on-chain transaction; failures surface as clear errors.
 - **Double-submit guarded** — UI locks during submission *and* the contract rejects duplicate IDs / re-verification.
+- **Verification window enforced** — outcomes cannot be self-confirmed before the horizon ends (and only within a 7-day grace), so the accuracy leaderboard cannot be gamed instantly.
+- **Evidence binding** — the `sha256` of the user's outcome evidence must match the committed hash; the raw evidence text is never stored.
+- **AI outcome verifier** — an independent agent (with a second re-run for consensus) checks the evidence supports the claimed outcome before reputation is updated.
+- **Signal validation** — the caller-supplied signal is type/size/range-bounded on-chain before it reaches the agents (blocks prompt injection & gas bloat).
+- **Anti-sybil leaderboard** — a wallet needs ≥ 3 verified predictions before it can rank.
 - **Validator independence** — validators re-run the LLM and compare the settled category (not just structure).
 - **Integer-only math** — no float division (GenVM-safe).
 - **Adaptive categories** — agents only consider domains the user actually engaged with (no assumptions about work/money/socializing).
@@ -140,7 +145,7 @@ cp .env.example .env.local
 
 ```env
 VITE_GENLAYER_CHAIN=studionet
-VITE_GENLAYER_CONTRACT=0x4C964C4288555E0b026e0656D17C8B0050803147
+VITE_GENLAYER_CONTRACT=0x45C5Dc0e703Bc9D7044814090D3f1760E536fee9
 VITE_GENLAYER_RPC=https://studio.genlayer.com/api
 ```
 

@@ -89,11 +89,16 @@ def test_get_prediction_missing_reverts(client, contract_address, account):
         )
 
 
-def test_commit_prediction(client, contract_address, account):
+def test_verify_window_not_open_yet(client, contract_address, account):
+    """The security fix: outcomes can NOT be self-confirmed before the horizon.
+
+    The verification window only opens 24h after the prediction is committed.
+    Immediately verifying (same test session) must be rejected by the contract.
+    """
     tx_hash = client.write_contract(
         address=contract_address,
-        function_name="commit_prediction",
-        args=["pred_int_1", "2026-08-12", "finance", "An expense may arise.", 7400],
+        function_name="request_prediction",
+        args=["pred_int_1", SIGNAL, "24h"],
         value=0,
     )
     receipt = client.wait_for_transaction_receipt(
@@ -101,35 +106,16 @@ def test_commit_prediction(client, contract_address, account):
     )
     assert receipt["status"] >= 1
 
-    pred = client.read_contract(
-        address=contract_address,
-        function_name="get_prediction",
-        args=[account.address, "pred_int_1"],
-    )
-    assert pred["status"] == "active"
-    assert pred["category"] == "finance"
-    assert pred["probability_bps"] == 7400
-
-
-def test_verify_prediction(client, contract_address, account):
-    tx_hash = client.write_contract(
-        address=contract_address,
-        function_name="verify_prediction",
-        args=["pred_int_1", "confirmed"],
-        value=0,
-    )
-    receipt = client.wait_for_transaction_receipt(
-        transaction_hash=tx_hash, status="ACCEPTED", interval=15000, retries=20
-    )
-    assert receipt["status"] >= 1
-
-    pred = client.read_contract(
-        address=contract_address,
-        function_name="get_prediction",
-        args=[account.address, "pred_int_1"],
-    )
-    assert pred["status"] == "verified"
-    assert pred["result"] == "confirmed"
+    # Sleep so the AI-consensus prediction settles, then try to verify early.
+    time.sleep(PAUSE_BETWEEN_TESTS)
+    with pytest.raises(Exception) as exc:
+        client.write_contract(
+            address=contract_address,
+            function_name="verify_prediction",
+            args=[account.address, "confirmed", "0" * 64, "Early claim, no evidence yet."],
+            value=0,
+        )
+    assert "Verification window not open yet" in str(exc.value)
 
 
 def test_get_oracle(client, contract_address, account):
@@ -139,7 +125,6 @@ def test_get_oracle(client, contract_address, account):
         args=[account.address],
     )
     assert oracle["predictions"] >= 1
-    assert oracle["confirmed"] >= 1
     assert "records" in oracle
 
 
@@ -153,7 +138,7 @@ def test_request_prediction_ai_consensus(client, contract_address, account):
     tx_hash = client.write_contract(
         address=contract_address,
         function_name="request_prediction",
-        args=["pred_ai_1", SIGNAL],
+        args=["pred_ai_1", SIGNAL, "24h"],
         value=0,
     )
     print(f"request_prediction tx: {tx_hash}", flush=True)

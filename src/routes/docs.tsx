@@ -36,11 +36,11 @@ const sections = [
   ],
   [
     "Prediction object",
-    "prediction, probability, confidence, category, impact, time horizon (24h), signals and agent agreement. Committed on-chain via the GenLayer contract.",
+    "prediction, probability, confidence, category, impact, time horizon (24h by default; 3d/7d/30d supported), signals and agent agreement. Committed on-chain via the GenLayer contract.",
   ],
   [
     "Verification",
-    "The next day you record the actual outcome (confirmed / partial / missed / not sure). The system scores the prediction and updates accuracy, calibration, streak, Fate Score and oracle reputation.",
+    "Once the horizon window opens (24h, plus a 7-day grace), you record the actual outcome (confirmed / partial / missed / not sure). The outcome is bound to the sha256 of your evidence and an independent AI verifier checks the evidence supports the claim before reputation is updated. Verification is locked before the window opens, so the leaderboard cannot be self-confirmed instantly.",
   ],
   [
     "GenLayer AI Consensus",

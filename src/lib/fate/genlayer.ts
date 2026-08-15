@@ -167,7 +167,7 @@ export async function requestPredictionOnchain(
     const txHash = await client.writeContract({
       address: contractAddress() as `0x${string}`,
       functionName: "request_prediction",
-      args: [prediction.id, toDict(signal)],
+      args: [prediction.id, toDict(signal), prediction.timeHorizon],
       value: BigInt(0),
     });
 
@@ -217,6 +217,8 @@ export type ConsensusPatch = {
   interpretations?: OnchainAgentReading[];
   status?: string;
   result?: string;
+  /** Unix seconds of the on-chain commitment (verification window anchor). */
+  createdTs?: number;
 };
 
 /** An agent reading as returned by the contract's get_prediction. */
@@ -259,6 +261,9 @@ export async function readPredictionOnchain(
     }
     if (typeof res["status"] === "string") patch.status = res["status"];
     if (typeof res["result"] === "string") patch.result = res["result"];
+    if (typeof res["created_ts"] === "number") {
+      patch.createdTs = Number(res["created_ts"]);
+    }
     if (Array.isArray(res["readings"])) {
       patch.interpretations = (res["readings"] as Record<string, unknown>[]).map(
         (r): OnchainAgentReading => ({
@@ -328,6 +333,9 @@ export async function readLeaderboardOnchain(): Promise<OnchainLeaderboardRow[] 
  * Records the verification result on-chain. STRICT MODE: throws on failure
  * (not configured, tx rejected, or execution error). No local fallback — the
  * prediction is only marked verified after the on-chain transaction succeeds.
+ *
+ * The evidence hash is committed on-chain; the raw evidence text is only passed
+ * to the on-chain AI verifier and is never stored.
  */
 export async function verifyPredictionOnchain(
   wallet: string,
@@ -346,7 +354,12 @@ export async function verifyPredictionOnchain(
     const txHash = await client.writeContract({
       address: contractAddress() as `0x${string}`,
       functionName: "verify_prediction",
-      args: [prediction.id, verification.result],
+      args: [
+        prediction.id,
+        verification.result,
+        verification.evidenceHash,
+        verification.actualOutcome,
+      ],
       value: BigInt(0),
     });
     // Wait for the verification to settle on-chain by polling the record until
