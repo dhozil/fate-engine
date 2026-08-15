@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { PageShell } from "@/components/fate/PageShell";
 import { WalletGate, useWallet } from "@/components/fate/wallet";
 import { CATEGORIES } from "@/lib/fate";
@@ -30,6 +30,7 @@ const VERIFY_LABEL: Record<string, string> = {
 
 function HistoryPage() {
   const { address } = useWallet();
+  const router = useRouter();
   const [tab, setTab] = useState<"chronicles" | "predictions" | "patterns">("chronicles");
 
   const chronicles = useMemo(() => (address ? getChronicles(address) : []), [address]);
@@ -49,6 +50,25 @@ function HistoryPage() {
       intro="Every chronicle adds a branch to your timeline. Patterns emerge the longer you record."
     >
       <WalletGate>
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => router.history.back()}
+            className="inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-[12px] tracking-[0.14em] text-muted-foreground uppercase transition-colors hover:border-gold hover:text-gold"
+          >
+            ← Back
+          </button>
+          {tab !== "chronicles" && (
+            <button
+              type="button"
+              onClick={() => setTab("chronicles")}
+              className="rounded-md border border-gold/50 px-4 py-2 text-[12px] tracking-[0.14em] text-gold uppercase transition-colors hover:bg-primary/20"
+            >
+              ← Back to Stories
+            </button>
+          )}
+        </div>
+
         <div className="mb-6 flex flex-wrap gap-2">
           {(
             [
