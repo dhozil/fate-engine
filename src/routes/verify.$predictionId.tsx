@@ -28,12 +28,7 @@ const RESULTS: { value: VerificationResult; label: string; hint: string }[] = [
 const GRACE_MS = 7 * 24 * 60 * 60 * 1000; // matches VERIFY_GRACE_HOURS (168h) in the contract
 const MIN_EVIDENCE_LENGTH = 20;
 
-function Countdown({ target }: { target: number }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
+function Countdown({ target, now }: { target: number; now: number }) {
   const ms = Math.max(0, target - now);
   const h = Math.floor(ms / 3600000);
   const m = Math.floor((ms % 3600000) / 60000);
@@ -53,11 +48,19 @@ function VerifyPage() {
     ? getPredictionsFor(address).find((p) => p.id === predictionId)
     : undefined;
 
+  const [now, setNow] = useState(() => Date.now());
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [outcome, setOutcome] = useState("");
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Re-evaluate the window every second so the page unlocks live the moment
+  // the 24h horizon passes — no refresh required.
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   if (!prediction) {
     return (
@@ -78,8 +81,8 @@ function VerifyPage() {
 
   const alreadyVerified = prediction.status === "verified";
   const deadline = new Date(prediction.horizonDeadline).getTime();
-  const windowOpened = Date.now() >= deadline;
-  const windowClosed = Date.now() >= deadline + GRACE_MS;
+  const windowOpened = now >= deadline;
+  const windowClosed = now >= deadline + GRACE_MS;
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,7 +147,7 @@ function VerifyPage() {
                 <span className="text-foreground">
                   {new Date(prediction.horizonDeadline).toLocaleString()}
                 </span>{" "}
-                — in <Countdown target={deadline} />.
+                — in <Countdown target={deadline} now={now} />.
               </p>
               <Link
                 to="/chronicle"
